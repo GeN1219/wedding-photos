@@ -12,9 +12,9 @@ const CACHE_MAX = 40; // blob URLキャッシュ上限
 // 同一レーン内は速度を完全に固定して追い抜きをなくし、
 // さらに前のカードが自分の幅+間隔ぶん進むまで次を出さない。
 const LANES = [
-  { top: 2, height: 40, duration: 30000, min: 30, max: 38, gap: 90 }, // 上段(大)
-  { top: 43, height: 14, duration: 22000, min: 12, max: 14, gap: 60 }, // 中段(小)
-  { top: 58, height: 38, duration: 36000, min: 30, max: 38, gap: 90 }, // 下段(大)
+  { top: 1, height: 33, duration: 30000, min: 28, max: 32, gap: 90 }, // 上段(大)
+  { top: 36, height: 26, duration: 26000, min: 21, max: 25, gap: 80 }, // 中段(中)
+  { top: 63, height: 33, duration: 36000, min: 28, max: 32, gap: 90 }, // 下段(大)
 ];
 
 const $ = (id) => document.getElementById(id);
