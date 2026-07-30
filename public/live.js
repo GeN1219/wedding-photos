@@ -4,17 +4,18 @@
 
 const POLL_MS = 5000; // 新着確認の間隔
 const SPAWN_MS = 2200; // 写真を流し始める間隔
-const MAX_CARDS = 14; // 同時に流れる最大枚数
+const MAX_CARDS = 16; // 同時に流れる最大枚数
 const CACHE_MAX = 40; // blob URLキャッシュ上限
 
-// 重なりを防ぐためのレーン設定(2段・写真は大きめ)。
+// 重なりを防ぐためのレーン設定。
+// 上下2段は大きめ(遠くの席からの視認用)、中央は小さめの賑やかし。
 // 同一レーン内は速度を完全に固定して追い抜きをなくし、
 // さらに前のカードが自分の幅+間隔ぶん進むまで次を出さない。
 const LANES = [
-  { top: 8, height: 40, duration: 30000 },
-  { top: 52, height: 40, duration: 36000 },
+  { top: 2, height: 40, duration: 30000, min: 30, max: 38, gap: 90 }, // 上段(大)
+  { top: 43, height: 14, duration: 22000, min: 12, max: 14, gap: 60 }, // 中段(小)
+  { top: 58, height: 38, duration: 36000, min: 30, max: 38, gap: 90 }, // 下段(大)
 ];
-const LANE_GAP_PX = 90; // 同一レーン内のカード間の最小間隔
 
 const $ = (id) => document.getElementById(id);
 const gate = $('gate');
@@ -130,6 +131,7 @@ function start(data) {
   gate.hidden = true;
   stage.hidden = false;
   makeSparkles();
+  startBaseball();
 
   // 既存の写真は演出なしでプールに入れる
   for (const p of data.photos) {
@@ -172,7 +174,7 @@ async function spawnCard(photo, lane) {
   try {
     const url = await acquire(photo.key);
     const card = document.createElement('div');
-    card.className = 'float-card';
+    card.className = lane.max < 20 ? 'float-card float-card-s' : 'float-card';
     const img = document.createElement('img');
     img.alt = '';
     const name = document.createElement('div');
@@ -187,7 +189,7 @@ async function spawnCard(photo, lane) {
       img.src = url;
     });
 
-    const h = 30 + Math.random() * (lane.height - 32); // 高さ 30〜38vh
+    const h = lane.min + Math.random() * (lane.max - lane.min);
     card.style.height = h + 'vh';
     card.style.top = lane.top + Math.random() * (lane.height - h) + 'vh';
     cardsEl.appendChild(card);
@@ -196,7 +198,7 @@ async function spawnCard(photo, lane) {
     const dur = lane.duration; // レーン内は完全に同速(追い抜きなし)
     const travel = window.innerWidth + width + 120;
     // このカードが「自分の幅+間隔」ぶん進むまでレーンを塞ぐ
-    lane.busyUntil = Date.now() + ((width + LANE_GAP_PX) / (travel / dur));
+    lane.busyUntil = Date.now() + ((width + lane.gap) / (travel / dur));
 
     const rot = Math.random() * 8 - 4;
     const anim = card.animate(
@@ -216,6 +218,131 @@ async function spawnCard(photo, lane) {
     release(photo.key);
     activeCards--;
   }
+}
+
+// ---- 野球シルエット演出 ----
+const BB_COLOR = 'rgba(70, 112, 140, 0.34)';
+let bbLayer = null;
+
+function ballSVG(size) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 40 40">
+    <circle cx="20" cy="20" r="18" fill="${BB_COLOR}"/>
+    <path d="M9 6 Q22 20 9 34" stroke="rgba(234,247,255,0.85)" stroke-width="2.4" fill="none"/>
+    <path d="M31 6 Q18 20 31 34" stroke="rgba(234,247,255,0.85)" stroke-width="2.4" fill="none"/>
+  </svg>`;
+}
+
+// バッターのシルエット(フォロースルーの姿勢)
+function batterSVG(size, flip) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 120 120"
+    style="${flip ? 'transform:scaleX(-1);' : ''}">
+    <g fill="${BB_COLOR}">
+      <circle cx="46" cy="20" r="10"/>
+      <path d="M36 30 L56 30 L62 64 L36 64 Z"/>
+      <path d="M38 62 L22 96 L30 99 L48 68 Z"/>
+      <path d="M54 62 L68 94 L60 97 L46 68 Z"/>
+    </g>
+    <path d="M54 36 L76 28" stroke="${BB_COLOR}" stroke-width="8" stroke-linecap="round" fill="none"/>
+    <path d="M76 28 L106 4" stroke="${BB_COLOR}" stroke-width="9" stroke-linecap="round" fill="none"/>
+  </svg>`;
+}
+
+// 放物線のキーフレームを生成(2次ベジェを分割)
+function arcKeyframes(x0, y0, cx, cy, x1, y1, spin) {
+  const frames = [];
+  for (let i = 0; i <= 12; i++) {
+    const t = i / 12;
+    const x = (1 - t) ** 2 * x0 + 2 * (1 - t) * t * cx + t ** 2 * x1;
+    const y = (1 - t) ** 2 * y0 + 2 * (1 - t) * t * cy + t ** 2 * y1;
+    frames.push({ transform: `translate(${x}px, ${y}px) rotate(${spin * t}deg)` });
+  }
+  return frames;
+}
+
+function flyBall(x0, y0, cx, cy, x1, y1, dur, size) {
+  const el = document.createElement('div');
+  el.className = 'bb-item';
+  el.innerHTML = ballSVG(size);
+  bbLayer.appendChild(el);
+  const anim = el.animate(arcKeyframes(x0, y0, cx, cy, x1, y1, 720), {
+    duration: dur,
+    easing: 'linear',
+  });
+  anim.onfinish = () => el.remove();
+}
+
+// 時々ボールがゆるやかに横切る
+function ambientBall() {
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  const ltr = Math.random() < 0.5;
+  const y = H * (0.25 + Math.random() * 0.5);
+  const peak = y - H * (0.15 + Math.random() * 0.2);
+  const size = 22 + Math.random() * 14;
+  if (ltr) flyBall(-50, y, W * 0.5, peak, W + 50, y - H * 0.05, 3800 + Math.random() * 2000, size);
+  else flyBall(W + 50, y, W * 0.5, peak, -50, y - H * 0.05, 3800 + Math.random() * 2000, size);
+}
+
+// バッターが現れてスイング → 打球が飛んでいく
+async function batterSwing() {
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  const flip = Math.random() < 0.5; // false: 左下から右へ打つ / true: 右下から左へ
+  const size = Math.max(120, H * 0.2);
+
+  const batter = document.createElement('div');
+  batter.className = 'bb-item bb-batter';
+  batter.innerHTML = batterSVG(size, flip);
+  batter.style.left = flip ? 'auto' : '3vw';
+  batter.style.right = flip ? '3vw' : 'auto';
+  batter.style.bottom = '3vh';
+  bbLayer.appendChild(batter);
+
+  // 現れる → ひと呼吸おいてスイング(素早い傾き)
+  batter.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400, fill: 'forwards' });
+  await sleep(700);
+  batter.animate(
+    [
+      { transform: 'rotate(0deg)' },
+      { transform: `rotate(${flip ? 14 : -14}deg)` },
+      { transform: 'rotate(0deg)' },
+    ],
+    { duration: 360, easing: 'ease-out' }
+  );
+  await sleep(180); // インパクトの瞬間
+
+  // 打球発射
+  const x0 = flip ? W - W * 0.08 : W * 0.08;
+  const x1 = flip ? -60 : W + 60;
+  const cx = W * 0.5;
+  flyBall(x0, H * 0.82, cx, -H * 0.15, x1, H * (0.15 + Math.random() * 0.25), 2600, 30);
+
+  await sleep(1500);
+  const fade = batter.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 500 });
+  await new Promise((r) => (fade.onfinish = r));
+  batter.remove();
+}
+
+function startBaseball() {
+  bbLayer = document.createElement('div');
+  bbLayer.className = 'bb-layer';
+  stage.insertBefore(bbLayer, cardsEl);
+
+  const loopBall = () => {
+    setTimeout(() => {
+      if (!document.hidden) ambientBall();
+      loopBall();
+    }, 6000 + Math.random() * 7000);
+  };
+  const loopSwing = () => {
+    setTimeout(() => {
+      if (!document.hidden) batterSwing();
+      loopSwing();
+    }, 11000 + Math.random() * 9000);
+  };
+  loopBall();
+  loopSwing();
+  batterSwing(); // 開始直後に一度見せる
 }
 
 // ---- 背景のキラキラ ----

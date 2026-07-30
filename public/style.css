@@ -369,6 +369,17 @@ input:focus {
   50% { opacity: 0.95; transform: scale(1) rotate(20deg); }
 }
 
+/* 野球シルエット */
+.bb-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 4; /* 写真より前・タイトルより後ろ */
+}
+.bb-item { position: absolute; top: 0; left: 0; }
+.bb-batter { top: auto; }
+
 .live-cards { position: absolute; inset: 0; }
 
 .float-card {
@@ -399,6 +410,11 @@ input:focus {
   white-space: nowrap;
   padding: 0 8px;
 }
+
+/* 中段の小さいカード */
+.float-card-s { padding: 5px 5px 17px; border-radius: 3px; }
+.float-card-s img { height: calc(100% - 12px); }
+.float-card-s .float-name { font-size: 9px; bottom: 2px; padding: 0 4px; }
 
 /* 新着トースト */
 .live-toast {
