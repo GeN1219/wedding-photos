@@ -305,3 +305,139 @@ input:focus {
   text-align: center;
   margin-top: 12px;
 }
+
+/* ================ ライブムービー ================ */
+.live-body {
+  min-height: 100vh;
+  background: radial-gradient(ellipse at center, #2a231c 0%, #17120d 75%) fixed;
+  overflow: hidden;
+}
+.live-body .gate-card { background: #fff; }
+
+.live-stage { position: fixed; inset: 0; }
+
+.live-title {
+  position: absolute;
+  top: 24px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: var(--serif);
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: 0.25em;
+  color: rgba(212, 181, 133, 0.65);
+  z-index: 5;
+  pointer-events: none;
+}
+
+.live-waiting {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 16px;
+  letter-spacing: 0.1em;
+}
+
+.live-cards { position: absolute; inset: 0; }
+
+.float-card {
+  position: absolute;
+  left: 0;
+  background: #fff;
+  padding: 8px 8px 26px;
+  border-radius: 4px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.55);
+  will-change: transform;
+}
+.float-card img {
+  height: calc(100% - 18px);
+  display: block;
+  border-radius: 2px;
+}
+.float-name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 5px;
+  text-align: center;
+  font-size: 12px;
+  color: #7a6a55;
+  font-family: var(--serif);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 8px;
+}
+
+/* 新着トースト */
+.live-toast {
+  position: absolute;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+  padding: 12px 28px;
+  border-radius: 99px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  z-index: 20;
+  opacity: 0;
+  transition: opacity 0.4s, transform 0.4s;
+}
+.live-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.live-toast-icon { font-size: 20px; }
+
+/* 新着写真のセンター表示 */
+.live-new {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  padding: 10px 10px 12px;
+  border-radius: 6px;
+  box-shadow: 0 0 0 4px rgba(212, 181, 133, 0.55), 0 20px 60px rgba(0, 0, 0, 0.6);
+  z-index: 15;
+}
+.live-new img {
+  max-height: 52vh;
+  max-width: 70vw;
+  display: block;
+  border-radius: 3px;
+}
+.live-new.pop { animation: live-pop 0.6s cubic-bezier(0.2, 1.6, 0.4, 1); }
+@keyframes live-pop {
+  from { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
+  to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+/* 全画面ボタン */
+.live-fs {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 30;
+  opacity: 0.35;
+  transition: opacity 0.2s;
+}
+.live-fs:hover { opacity: 1; }
