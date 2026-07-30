@@ -7,14 +7,14 @@ const SPAWN_MS = 2200; // 写真を流し始める間隔
 const MAX_CARDS = 14; // 同時に流れる最大枚数
 const CACHE_MAX = 40; // blob URLキャッシュ上限
 
-// 完全な重なりを防ぐためのレーン設定。
-// 同一レーン内は速度をほぼ揃え(±8%)、レーンを巡回して配置することで
-// 追い抜きによる完全重なりを避ける(少しの重なりは許容)。
+// 重なりを防ぐためのレーン設定(2段・写真は大きめ)。
+// 同一レーン内は速度を完全に固定して追い抜きをなくし、
+// さらに前のカードが自分の幅+間隔ぶん進むまで次を出さない。
 const LANES = [
-  { top: 4, height: 30, duration: 30000 },
-  { top: 34, height: 30, duration: 25000 },
-  { top: 64, height: 30, duration: 35000 },
+  { top: 8, height: 40, duration: 30000 },
+  { top: 52, height: 40, duration: 36000 },
 ];
+const LANE_GAP_PX = 90; // 同一レーン内のカード間の最小間隔
 
 const $ = (id) => document.getElementById(id);
 const gate = $('gate');
@@ -154,26 +154,21 @@ function nextPhoto() {
 }
 
 // ---- 写真を流す ----
-let laneOrder = [];
-let laneIdx = 0;
-
-function nextLane() {
-  if (laneIdx >= laneOrder.length) {
-    laneOrder = shuffle(LANES.map((_, i) => i));
-    laneIdx = 0;
-  }
-  return LANES[laneOrder[laneIdx++]];
-}
-
 function spawnTick() {
   if (document.hidden) return;
   if (activeCards >= MAX_CARDS) return;
+  // 空いているレーン(前のカードが十分進んだレーン)からランダムに選ぶ
+  const now = Date.now();
+  const free = LANES.filter((l) => (l.busyUntil || 0) <= now);
+  if (free.length === 0) return;
+  const lane = free[Math.floor(Math.random() * free.length)];
   const photo = nextPhoto();
-  if (photo) spawnCard(photo);
+  if (photo) spawnCard(photo, lane);
 }
 
-async function spawnCard(photo) {
+async function spawnCard(photo, lane) {
   activeCards++;
+  lane.busyUntil = Date.now() + 5000; // 画像読み込み中の仮押さえ
   try {
     const url = await acquire(photo.key);
     const card = document.createElement('div');
@@ -192,18 +187,22 @@ async function spawnCard(photo) {
       img.src = url;
     });
 
-    const lane = nextLane();
-    const h = 20 + Math.random() * Math.max(2, lane.height - 22); // 高さ 20〜28vh
+    const h = 30 + Math.random() * (lane.height - 32); // 高さ 30〜38vh
     card.style.height = h + 'vh';
     card.style.top = lane.top + Math.random() * (lane.height - h) + 'vh';
     cardsEl.appendChild(card);
 
+    const width = card.offsetWidth;
+    const dur = lane.duration; // レーン内は完全に同速(追い抜きなし)
+    const travel = window.innerWidth + width + 120;
+    // このカードが「自分の幅+間隔」ぶん進むまでレーンを塞ぐ
+    lane.busyUntil = Date.now() + ((width + LANE_GAP_PX) / (travel / dur));
+
     const rot = Math.random() * 8 - 4;
-    const dur = lane.duration * (0.92 + Math.random() * 0.16); // レーン基準速度 ±8%
     const anim = card.animate(
       [
         { transform: `translateX(100vw) rotate(${rot}deg)` },
-        { transform: `translateX(${-(card.offsetWidth + 120)}px) rotate(${rot}deg)` },
+        { transform: `translateX(${-(width + 120)}px) rotate(${rot}deg)` },
       ],
       { duration: dur, easing: 'linear' }
     );
@@ -213,6 +212,7 @@ async function spawnCard(photo) {
       activeCards--;
     };
   } catch (e) {
+    lane.busyUntil = Date.now();
     release(photo.key);
     activeCards--;
   }
