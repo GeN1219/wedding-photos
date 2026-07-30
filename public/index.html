@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wedding Photos | 写真をお送りください</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<main class="page">
+  <header class="hero">
+    <div class="ornament">&#10087;</div>
+    <h1 class="hero-title">Wedding Photos</h1>
+    <p class="lead">本日はありがとうございます。<br>撮影したお写真・動画をぜひお送りください。</p>
+  </header>
+
+  <section id="form-section" class="card">
+    <label class="field">
+      <span class="label">合言葉 <em class="badge badge-req">必須</em></span>
+      <input type="text" id="passcode" placeholder="招待状に記載の合言葉" autocomplete="off" autocapitalize="off">
+    </label>
+
+    <label class="field">
+      <span class="label">お名前 <em class="badge badge-opt">任意</em></span>
+      <input type="text" id="uploader-name" placeholder="例: 山田太郎" autocomplete="name">
+    </label>
+
+    <label class="file-drop" for="file-input">
+      <input type="file" id="file-input" multiple accept="image/*,video/*">
+      <span class="file-drop-icon">&#128247;</span>
+      <span id="file-label" class="file-drop-text">タップして写真・動画を選択</span>
+    </label>
+    <p id="file-summary" class="file-summary" hidden></p>
+    <p id="form-error" class="error" hidden></p>
+
+    <button id="upload-btn" class="btn btn-primary" disabled>アップロード</button>
+    <p class="note">1ファイル最大95MB・複数選択できます</p>
+  </section>
+
+  <section id="progress-section" class="card" hidden>
+    <h2 id="progress-title" class="section-title">送信中…</h2>
+    <div class="overall">
+      <div class="bar"><div id="overall-fill" class="bar-fill"></div></div>
+      <p id="overall-text" class="overall-text"></p>
+    </div>
+    <ul id="file-list" class="file-list"></ul>
+    <p id="progress-error" class="error" hidden></p>
+    <button id="retry-btn" class="btn btn-primary" hidden>失敗したファイルを再送</button>
+  </section>
+
+  <section id="done-section" class="card done" hidden>
+    <div class="done-icon">&#127881;</div>
+    <h2 id="done-message" class="done-message"></h2>
+    <p class="done-sub">素敵なお写真をありがとうございます。</p>
+    <button id="more-btn" class="btn btn-secondary">続けて送る</button>
+  </section>
+
+  <footer class="footer">Wedding Photo Share</footer>
+</main>
+<script src="./app.js"></script>
+</body>
+</html>
