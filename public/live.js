@@ -7,6 +7,15 @@ const SPAWN_MS = 2200; // 写真を流し始める間隔
 const MAX_CARDS = 14; // 同時に流れる最大枚数
 const CACHE_MAX = 40; // blob URLキャッシュ上限
 
+// 完全な重なりを防ぐためのレーン設定。
+// 同一レーン内は速度をほぼ揃え(±8%)、レーンを巡回して配置することで
+// 追い抜きによる完全重なりを避ける(少しの重なりは許容)。
+const LANES = [
+  { top: 4, height: 30, duration: 30000 },
+  { top: 34, height: 30, duration: 25000 },
+  { top: 64, height: 30, duration: 35000 },
+];
+
 const $ = (id) => document.getElementById(id);
 const gate = $('gate');
 const gateError = $('gate-error');
@@ -120,6 +129,7 @@ function start(data) {
   started = true;
   gate.hidden = true;
   stage.hidden = false;
+  makeSparkles();
 
   // 既存の写真は演出なしでプールに入れる
   for (const p of data.photos) {
@@ -144,6 +154,17 @@ function nextPhoto() {
 }
 
 // ---- 写真を流す ----
+let laneOrder = [];
+let laneIdx = 0;
+
+function nextLane() {
+  if (laneIdx >= laneOrder.length) {
+    laneOrder = shuffle(LANES.map((_, i) => i));
+    laneIdx = 0;
+  }
+  return LANES[laneOrder[laneIdx++]];
+}
+
 function spawnTick() {
   if (document.hidden) return;
   if (activeCards >= MAX_CARDS) return;
@@ -171,13 +192,14 @@ async function spawnCard(photo) {
       img.src = url;
     });
 
-    const h = 24 + Math.random() * 16; // 高さ 24〜40vh
+    const lane = nextLane();
+    const h = 20 + Math.random() * Math.max(2, lane.height - 22); // 高さ 20〜28vh
     card.style.height = h + 'vh';
-    card.style.top = 4 + Math.random() * (86 - h) + 'vh';
+    card.style.top = lane.top + Math.random() * (lane.height - h) + 'vh';
     cardsEl.appendChild(card);
 
-    const rot = Math.random() * 10 - 5;
-    const dur = (20 + Math.random() * 14) * 1000;
+    const rot = Math.random() * 8 - 4;
+    const dur = lane.duration * (0.92 + Math.random() * 0.16); // レーン基準速度 ±8%
     const anim = card.animate(
       [
         { transform: `translateX(100vw) rotate(${rot}deg)` },
@@ -194,6 +216,31 @@ async function spawnCard(photo) {
     release(photo.key);
     activeCards--;
   }
+}
+
+// ---- 背景のキラキラ ----
+function makeSparkles() {
+  const wrap = document.createElement('div');
+  wrap.className = 'sparkles';
+  for (let i = 0; i < 34; i++) {
+    const s = document.createElement('span');
+    const star = Math.random() < 0.3;
+    s.className = star ? 'sparkle sparkle-star' : 'sparkle';
+    if (star) s.textContent = '✦';
+    s.style.left = Math.random() * 100 + 'vw';
+    s.style.top = Math.random() * 100 + 'vh';
+    const size = 5 + Math.random() * 11;
+    if (star) {
+      s.style.fontSize = size + 4 + 'px';
+    } else {
+      s.style.width = size + 'px';
+      s.style.height = size + 'px';
+    }
+    s.style.animationDuration = 2.5 + Math.random() * 4 + 's';
+    s.style.animationDelay = Math.random() * 5 + 's';
+    wrap.appendChild(s);
+  }
+  stage.prepend(wrap);
 }
 
 // ---- 新着の検知と演出 ----

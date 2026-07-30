@@ -309,7 +309,7 @@ input:focus {
 /* ================ ライブムービー ================ */
 .live-body {
   min-height: 100vh;
-  background: radial-gradient(ellipse at center, #2a231c 0%, #17120d 75%) fixed;
+  background: linear-gradient(180deg, #eaf7ff 0%, #d3ecfa 55%, #bfe2f6 100%) fixed;
   overflow: hidden;
 }
 .live-body .gate-card { background: #fff; }
@@ -326,7 +326,8 @@ input:focus {
   font-size: 28px;
   font-weight: 500;
   letter-spacing: 0.25em;
-  color: rgba(212, 181, 133, 0.65);
+  color: rgba(150, 117, 63, 0.6);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
   z-index: 5;
   pointer-events: none;
 }
@@ -337,9 +338,35 @@ input:focus {
   left: 0;
   right: 0;
   text-align: center;
-  color: rgba(255, 255, 255, 0.5);
+  color: #6d8ba0;
   font-size: 16px;
   letter-spacing: 0.1em;
+}
+
+/* キラキラ */
+.sparkles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.sparkle {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0) 70%);
+  opacity: 0;
+  animation: twinkle 4s ease-in-out infinite;
+}
+.sparkle-star {
+  background: none;
+  border-radius: 0;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 0 8px rgba(147, 208, 245, 0.9);
+  line-height: 1;
+}
+@keyframes twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.3) rotate(0deg); }
+  50% { opacity: 0.95; transform: scale(1) rotate(20deg); }
 }
 
 .live-cards { position: absolute; inset: 0; }
@@ -350,7 +377,7 @@ input:focus {
   background: #fff;
   padding: 8px 8px 26px;
   border-radius: 4px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 10px 26px rgba(74, 199, 245, 0.35), 0 3px 8px rgba(90, 130, 160, 0.25);
   will-change: transform;
 }
 .float-card img {
@@ -388,7 +415,7 @@ input:focus {
   font-weight: 600;
   padding: 12px 28px;
   border-radius: 99px;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 6px 24px rgba(90, 130, 160, 0.45);
   z-index: 20;
   opacity: 0;
   transition: opacity 0.4s, transform 0.4s;
@@ -408,7 +435,7 @@ input:focus {
   background: #fff;
   padding: 10px 10px 12px;
   border-radius: 6px;
-  box-shadow: 0 0 0 4px rgba(212, 181, 133, 0.55), 0 20px 60px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 0 4px rgba(212, 181, 133, 0.6), 0 20px 60px rgba(90, 130, 160, 0.5);
   z-index: 15;
 }
 .live-new img {
@@ -432,12 +459,12 @@ input:focus {
   height: 44px;
   border: none;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.7);
+  background: rgba(90, 130, 160, 0.15);
+  color: #46708c;
   font-size: 20px;
   cursor: pointer;
   z-index: 30;
-  opacity: 0.35;
+  opacity: 0.45;
   transition: opacity 0.2s;
 }
 .live-fs:hover { opacity: 1; }
