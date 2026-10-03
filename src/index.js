@@ -183,7 +183,10 @@ async function handlePhotos(env) {
 
   photos.sort((a, b) => b.key.localeCompare(a.key)); // 新しい順
   const totalSize = photos.reduce((sum, p) => sum + p.size, 0);
-  return json({ count: photos.length, totalSize, photos });
+  // 一覧は読み取り専用。ありがとうサイト(gen1219.github.io)から取得できるよう CORS を許可する
+  return json({ count: photos.length, totalSize, photos }, 200, {
+    'Access-Control-Allow-Origin': '*',
+  });
 }
 
 async function handlePhoto(request, env, url, key) {
