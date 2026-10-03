@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
 <title>Wedding Photos | 写真をお送りください</title>
-<link rel="stylesheet" href="./style.css">
+<link rel="stylesheet" href="./style.css?v=5">
 </head>
 <body>
 <main class="page">
@@ -15,11 +16,6 @@
   </header>
 
   <section id="form-section" class="card">
-    <label class="field">
-      <span class="label">合言葉 <em class="badge badge-req">必須</em></span>
-      <input type="text" id="passcode" placeholder="招待状に記載の合言葉" autocomplete="off" autocapitalize="off">
-    </label>
-
     <label class="field">
       <span class="label">お名前 <em class="badge badge-opt">任意</em></span>
       <input type="text" id="uploader-name" placeholder="例: 山田太郎" autocomplete="name">
@@ -51,12 +47,34 @@
   <section id="done-section" class="card done" hidden>
     <div class="done-icon">&#127881;</div>
     <h2 id="done-message" class="done-message"></h2>
-    <p class="done-sub">素敵なお写真をありがとうございます。</p>
+    <p class="done-sub">素敵なお写真をありがとうございます。<br>下の「みんなの写真」に追加されました。</p>
     <button id="more-btn" class="btn btn-secondary">続けて送る</button>
   </section>
-
-  <footer class="footer">Wedding Photo Share</footer>
 </main>
-<script src="./app.js"></script>
+
+<section class="album">
+  <div class="album-head">
+    <h2 class="album-title">みんなの写真</h2>
+    <p id="album-stats" class="album-stats"></p>
+    <button id="refresh-btn" class="btn-text" type="button">&#8635; 最新にする</button>
+  </div>
+  <p class="album-note">写真をタップすると大きく表示され、端末に保存できます</p>
+  <div id="grid" class="grid"></div>
+  <div id="sentinel"></div>
+  <p id="album-empty" class="album-empty" hidden>まだ写真がありません。最初の1枚をぜひ!</p>
+  <p id="album-error" class="error" hidden></p>
+  <footer class="footer">Wedding Photo Share</footer>
+</section>
+
+<div id="lightbox" class="lightbox" hidden>
+  <button id="lb-close" class="lb-close" aria-label="閉じる">&#10005;</button>
+  <div id="lb-content" class="lb-content"></div>
+  <p id="lb-caption" class="lb-caption"></p>
+  <button id="lb-save" class="btn btn-primary lb-save" type="button">端末に保存</button>
+  <p id="lb-hint" class="lb-hint">iPhoneは写真を長押しでも保存できます</p>
+</div>
+
+<script src="./app.js?v=5"></script>
+<script src="./album.js?v=5"></script>
 </body>
 </html>

@@ -193,37 +193,42 @@ input:focus {
   margin-top: 28px;
 }
 
-/* ================ ギャラリー ================ */
-.gallery-page { max-width: 1080px; margin: 0 auto; padding: 24px 16px 60px; }
 
-.gate {
-  min-height: 100vh;
+/* ================ みんなの写真 ================ */
+.album {
+  max-width: 960px;
+  margin: 8px auto 0;
+  padding: 0 12px calc(24px + env(safe-area-inset-bottom));
+}
+.album-head {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 0 4px;
+  border-top: 1px solid var(--line);
+  padding-top: 24px;
 }
-.gate-card { width: 100%; max-width: 360px; text-align: center; }
-.gate-card h1 {
+.album-title {
   font-family: var(--serif);
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 500;
   color: var(--accent-dark);
-  margin-bottom: 6px;
 }
-.gate-card p { font-size: 13px; color: var(--ink-light); margin-bottom: 16px; }
-.gate-card input { margin-bottom: 12px; }
-
-.g-header { text-align: center; margin-bottom: 20px; }
-.g-header h1 {
-  font-family: var(--serif);
-  font-size: 26px;
-  font-weight: 500;
-  letter-spacing: 0.1em;
+.album-stats { font-size: 12px; color: var(--ink-light); }
+.btn-text {
+  margin-left: auto;
+  background: none;
+  border: none;
   color: var(--accent-dark);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 4px;
+  cursor: pointer;
 }
-.g-stats { font-size: 13px; color: var(--ink-light); margin-top: 4px; }
-.g-empty { text-align: center; color: var(--ink-light); margin-top: 40px; }
+.btn-text:disabled { opacity: 0.4; cursor: default; }
+.album-note { font-size: 12px; color: var(--ink-light); padding: 2px 4px 12px; }
+.album-empty { text-align: center; color: var(--ink-light); margin: 32px 0; font-size: 14px; }
 
 .grid {
   display: grid;
@@ -233,8 +238,9 @@ input:focus {
 @media (max-width: 480px) {
   .grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
 }
+#sentinel { height: 1px; }
 
-.tile { cursor: pointer; }
+.tile { cursor: pointer; min-width: 0; }
 .thumb {
   aspect-ratio: 1;
   background: var(--accent-pale);
@@ -250,7 +256,7 @@ input:focus {
   object-fit: cover;
   display: block;
 }
-.thumb .video-badge { font-size: 32px; color: var(--accent-dark); }
+.thumb .ph { font-size: 22px; font-weight: 600; color: var(--accent-dark); }
 .tile-meta { font-size: 10px; color: var(--ink-light); margin-top: 3px; line-height: 1.4; }
 .tile-meta .who {
   display: block;
@@ -260,7 +266,7 @@ input:focus {
   color: var(--ink);
 }
 
-/* ---- ライトボックス ---- */
+/* ---- 拡大表示 ---- */
 .lightbox {
   position: fixed;
   inset: 0;
@@ -270,7 +276,7 @@ input:focus {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
 }
 .lb-close {
   position: absolute;
@@ -287,200 +293,23 @@ input:focus {
 }
 .lb-content {
   max-width: 100%;
-  max-height: 82vh;
+  max-height: 70vh;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .lb-content img, .lb-content video {
   max-width: 100%;
-  max-height: 82vh;
+  max-height: 70vh;
   object-fit: contain;
   border-radius: 4px;
 }
-.lb-loading { color: #fff; font-size: 13px; opacity: 0.8; }
+.lb-loading { color: #fff; font-size: 13px; opacity: 0.8; text-align: center; padding: 0 16px; }
 .lb-caption {
   color: rgba(255, 255, 255, 0.85);
   font-size: 12px;
   text-align: center;
   margin-top: 12px;
 }
-
-/* ================ ライブムービー ================ */
-.live-body {
-  min-height: 100vh;
-  background: linear-gradient(180deg, #eaf7ff 0%, #d3ecfa 55%, #bfe2f6 100%) fixed;
-  overflow: hidden;
-}
-.live-body .gate-card { background: #fff; }
-
-.live-stage { position: fixed; inset: 0; }
-
-.live-title {
-  position: absolute;
-  top: 24px;
-  left: 0;
-  right: 0;
-  text-align: center;
-  font-family: var(--serif);
-  font-size: 28px;
-  font-weight: 500;
-  letter-spacing: 0.25em;
-  color: rgba(150, 117, 63, 0.6);
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
-  z-index: 5;
-  pointer-events: none;
-}
-
-.live-waiting {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  text-align: center;
-  color: #6d8ba0;
-  font-size: 16px;
-  letter-spacing: 0.1em;
-}
-
-/* キラキラ */
-.sparkles {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-.sparkle {
-  position: absolute;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0) 70%);
-  opacity: 0;
-  animation: twinkle 4s ease-in-out infinite;
-}
-.sparkle-star {
-  background: none;
-  border-radius: 0;
-  color: rgba(255, 255, 255, 0.95);
-  text-shadow: 0 0 8px rgba(147, 208, 245, 0.9);
-  line-height: 1;
-}
-@keyframes twinkle {
-  0%, 100% { opacity: 0; transform: scale(0.3) rotate(0deg); }
-  50% { opacity: 0.95; transform: scale(1) rotate(20deg); }
-}
-
-/* 野球シルエット */
-.bb-layer {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-  z-index: 4; /* 写真より前・タイトルより後ろ */
-}
-.bb-item { position: absolute; top: 0; left: 0; }
-.bb-batter { top: auto; }
-
-.live-cards { position: absolute; inset: 0; }
-
-.float-card {
-  position: absolute;
-  left: 0;
-  background: #fff;
-  padding: 8px 8px 26px;
-  border-radius: 4px;
-  box-shadow: 0 10px 26px rgba(74, 199, 245, 0.35), 0 3px 8px rgba(90, 130, 160, 0.25);
-  will-change: transform;
-}
-.float-card img {
-  height: calc(100% - 18px);
-  display: block;
-  border-radius: 2px;
-}
-.float-name {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 5px;
-  text-align: center;
-  font-size: 12px;
-  color: #7a6a55;
-  font-family: var(--serif);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 0 8px;
-}
-
-/* 中段の小さいカード */
-.float-card-s { padding: 5px 5px 17px; border-radius: 3px; }
-.float-card-s img { height: calc(100% - 12px); }
-.float-card-s .float-name { font-size: 9px; bottom: 2px; padding: 0 4px; }
-
-/* 新着トースト */
-.live-toast {
-  position: absolute;
-  top: 72px;
-  left: 50%;
-  transform: translateX(-50%) translateY(-20px);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 18px;
-  font-weight: 600;
-  padding: 12px 28px;
-  border-radius: 99px;
-  box-shadow: 0 6px 24px rgba(90, 130, 160, 0.45);
-  z-index: 20;
-  opacity: 0;
-  transition: opacity 0.4s, transform 0.4s;
-}
-.live-toast.show {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-.live-toast-icon { font-size: 20px; }
-
-/* 新着写真のセンター表示 */
-.live-new {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: #fff;
-  padding: 10px 10px 12px;
-  border-radius: 6px;
-  box-shadow: 0 0 0 4px rgba(212, 181, 133, 0.6), 0 20px 60px rgba(90, 130, 160, 0.5);
-  z-index: 15;
-}
-.live-new img {
-  max-height: 52vh;
-  max-width: 70vw;
-  display: block;
-  border-radius: 3px;
-}
-.live-new.pop { animation: live-pop 0.6s cubic-bezier(0.2, 1.6, 0.4, 1); }
-@keyframes live-pop {
-  from { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
-  to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-}
-
-/* 全画面ボタン */
-.live-fs {
-  position: absolute;
-  right: 16px;
-  bottom: 16px;
-  width: 44px;
-  height: 44px;
-  border: none;
-  border-radius: 50%;
-  background: rgba(90, 130, 160, 0.15);
-  color: #46708c;
-  font-size: 20px;
-  cursor: pointer;
-  z-index: 30;
-  opacity: 0.45;
-  transition: opacity 0.2s;
-}
-.live-fs:hover { opacity: 1; }
+.lb-save { width: auto; min-width: 200px; margin-top: 14px; padding: 12px 32px; }
+.lb-hint { color: rgba(255, 255, 255, 0.55); font-size: 11px; margin-top: 8px; }

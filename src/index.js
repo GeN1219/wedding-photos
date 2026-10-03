@@ -1,8 +1,11 @@
 // 結婚式写真収集サイト Worker 本体(API + 静的配信フォールバック)
 
 const MAX_SIZE = 95 * 1024 * 1024; // 1ファイル上限 95MB
-const RATE_LIMIT = 60; // 同一IPあたり 60リクエスト/分
+const MAX_THUMB_SIZE = 1024 * 1024; // サムネイル上限 1MB
+const THUMB_WINDOW_MS = 30 * 60 * 1000; // サムネイルは元写真の投稿から30分以内のみ受付
+const RATE_LIMIT = 60; // 同一IPあたり 60アップロード/分
 const RATE_WINDOW_MS = 60 * 1000;
+const KEY_RE = /^photos\/\d{8}-\d{6}-[a-z0-9]{8}\.[a-z0-9]{1,8}$/;
 
 // Content-Type → 拡張子(不明なものは subtype をそのまま使う)
 const EXT_BY_TYPE = {
@@ -48,7 +51,12 @@ function rateCheck(ip) {
 function json(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', ...headers },
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'X-Robots-Tag': 'noindex',
+      ...headers,
+    },
   });
 }
 
@@ -71,12 +79,14 @@ function randomId(len = 8) {
   return s;
 }
 
-async function handleUpload(request, env) {
-  if (request.headers.get('X-Passcode') !== env.GUEST_PASSCODE) {
-    return json({ error: '合言葉が違います。招待状をご確認ください。' }, 401);
-  }
+const thumbKeyOf = (key) => 'thumbs/' + key.slice('photos/'.length) + '.jpg';
 
-  const contentType = (request.headers.get('Content-Type') || '').split(';')[0].trim().toLowerCase();
+function mediaType(request) {
+  return (request.headers.get('Content-Type') || '').split(';')[0].trim().toLowerCase();
+}
+
+async function handleUpload(request, env) {
+  const contentType = mediaType(request);
   if (!/^(image|video)\//.test(contentType)) {
     return json({ error: '画像または動画のみアップロードできます。' }, 400);
   }
@@ -110,51 +120,119 @@ async function handleUpload(request, env) {
   return json({ ok: true, key });
 }
 
-async function handlePhotos(env) {
-  const photos = [];
+// 一覧表示用サムネイル(ブラウザ側で縮小したJPEG)。原寸写真とは別に保存する
+async function handleThumb(request, env, url) {
+  const key = url.searchParams.get('key') || '';
+  if (!KEY_RE.test(key)) return json({ error: '不正なキーです。' }, 400);
+  if (mediaType(request) !== 'image/jpeg') {
+    return json({ error: 'サムネイルはJPEGのみ受け付けます。' }, 400);
+  }
+  const length = Number(request.headers.get('Content-Length') || '0');
+  if (!length || length > MAX_THUMB_SIZE) {
+    return json({ error: 'サムネイルのサイズが不正です。' }, 413);
+  }
+
+  const original = await env.PHOTOS.head(key);
+  if (!original) return json({ error: '元の写真が見つかりません。' }, 404);
+  if (Date.now() - original.uploaded.getTime() > THUMB_WINDOW_MS) {
+    return json({ error: 'サムネイルの受付期限を過ぎています。' }, 403);
+  }
+  const thumbKey = thumbKeyOf(key);
+  if (await env.PHOTOS.head(thumbKey)) {
+    return json({ error: 'サムネイルは登録済みです。' }, 409);
+  }
+
+  await env.PHOTOS.put(thumbKey, request.body, { httpMetadata: { contentType: 'image/jpeg' } });
+  return json({ ok: true });
+}
+
+async function listAll(env, prefix, include) {
+  const objects = [];
   let cursor;
   do {
-    const res = await env.PHOTOS.list({
-      prefix: 'photos/',
-      cursor,
-      include: ['customMetadata', 'httpMetadata'],
-    });
-    for (const o of res.objects) {
-      let uploaderName = o.customMetadata?.uploaderName || '';
-      try {
-        uploaderName = decodeURIComponent(uploaderName);
-      } catch (e) {
-        // デコード不能ならそのまま
-      }
-      photos.push({
-        key: o.key,
-        size: o.size,
-        uploaded: o.uploaded,
-        uploaderName,
-        contentType: o.httpMetadata?.contentType || '',
-      });
-    }
+    const res = await env.PHOTOS.list({ prefix, cursor, include });
+    objects.push(...res.objects);
     cursor = res.truncated ? res.cursor : undefined;
   } while (cursor);
+  return objects;
+}
+
+async function handlePhotos(env) {
+  const [originals, thumbs] = await Promise.all([
+    listAll(env, 'photos/', ['customMetadata', 'httpMetadata']),
+    listAll(env, 'thumbs/', []),
+  ]);
+  const thumbSet = new Set(thumbs.map((o) => o.key));
+
+  const photos = originals.map((o) => {
+    let uploaderName = o.customMetadata?.uploaderName || '';
+    try {
+      uploaderName = decodeURIComponent(uploaderName);
+    } catch (e) {
+      // デコード不能ならそのまま
+    }
+    return {
+      key: o.key,
+      size: o.size,
+      uploaded: o.uploaded,
+      uploaderName,
+      contentType: o.httpMetadata?.contentType || '',
+      hasThumb: thumbSet.has(thumbKeyOf(o.key)),
+    };
+  });
 
   photos.sort((a, b) => b.key.localeCompare(a.key)); // 新しい順
   const totalSize = photos.reduce((sum, p) => sum + p.size, 0);
   return json({ count: photos.length, totalSize, photos });
 }
 
-async function handlePhoto(env, key) {
-  if (!key.startsWith('photos/') || key.includes('..')) {
+async function handlePhoto(request, env, url, key) {
+  if (!KEY_RE.test(key)) {
     return json({ error: '不正なキーです。' }, 400);
   }
-  const obj = await env.PHOTOS.get(key);
+  const objKey = url.searchParams.get('size') === 'thumb' ? thumbKeyOf(key) : key;
+
+  let obj;
+  try {
+    // Range 対応(iPhone Safari は動画再生に Range リクエストが必須)
+    obj = await env.PHOTOS.get(objKey, { range: request.headers });
+  } catch (e) {
+    return new Response('範囲指定が不正です。', { status: 416 });
+  }
   if (!obj) {
     return json({ error: 'ファイルが見つかりません。' }, 404);
   }
+
   const headers = new Headers();
   obj.writeHttpMetadata(headers);
-  headers.set('Cache-Control', 'private, max-age=86400');
   headers.set('ETag', obj.httpEtag);
-  return new Response(obj.body, { headers });
+  // キーは一意で内容は変わらないため長期キャッシュしてよい
+  headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+  headers.set('Accept-Ranges', 'bytes');
+  headers.set('X-Robots-Tag', 'noindex');
+  headers.set('X-Content-Type-Options', 'nosniff');
+  // SVG等を直接開かれてもスクリプトを実行させない
+  headers.set('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox");
+  if (url.searchParams.get('dl') === '1') {
+    headers.set('Content-Disposition', `attachment; filename="${key.slice('photos/'.length)}"`);
+  }
+
+  let status = 200;
+  if (request.headers.has('Range') && obj.range) {
+    let offset;
+    let length;
+    if (obj.range.suffix !== undefined) {
+      length = Math.min(obj.range.suffix, obj.size);
+      offset = obj.size - length;
+    } else {
+      offset = obj.range.offset ?? 0;
+      length = obj.range.length ?? obj.size - offset;
+    }
+    headers.set('Content-Range', `bytes ${offset}-${offset + length - 1}/${obj.size}`);
+    headers.set('Content-Length', String(length));
+    status = 206;
+  }
+  return new Response(obj.body, { status, headers });
 }
 
 export default {
@@ -165,14 +243,8 @@ export default {
       return env.ASSETS.fetch(request);
     }
 
-    if (!env.GUEST_PASSCODE || !env.ADMIN_PASSCODE) {
-      return json({ error: 'サーバ設定エラー: 合言葉が未設定です(wrangler secret を設定してください)。' }, 500);
-    }
-
-    const isAdmin = request.headers.get('X-Admin-Passcode') === env.ADMIN_PASSCODE;
-
-    // 管理パスコード認証済みリクエストは除外(ギャラリー閲覧は多数のGETが発生するため)
-    if (!isAdmin) {
+    if (url.pathname === '/api/upload' && request.method === 'POST') {
+      // 誰でも投稿できるため、スパム対策としてアップロードのみ回数制限する
       const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
       const rate = rateCheck(ip);
       if (rate.limited) {
@@ -182,24 +254,22 @@ export default {
           { 'Retry-After': String(rate.retryAfter) }
         );
       }
-    }
-
-    if (url.pathname === '/api/upload' && request.method === 'POST') {
       return handleUpload(request, env);
     }
+    if (url.pathname === '/api/thumb' && request.method === 'POST') {
+      return handleThumb(request, env, url);
+    }
     if (url.pathname === '/api/photos' && request.method === 'GET') {
-      if (!isAdmin) return json({ error: 'パスコードが違います。' }, 401);
       return handlePhotos(env);
     }
     if (url.pathname.startsWith('/api/photo/') && request.method === 'GET') {
-      if (!isAdmin) return json({ error: 'パスコードが違います。' }, 401);
       let key = url.pathname.slice('/api/photo/'.length);
       try {
         key = decodeURIComponent(key);
       } catch (e) {
         return json({ error: '不正なキーです。' }, 400);
       }
-      return handlePhoto(env, key);
+      return handlePhoto(request, env, url, key);
     }
 
     return json({ error: '見つかりません。' }, 404);

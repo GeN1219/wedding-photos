@@ -1,39 +1,34 @@
 # Wedding Photos — 結婚式写真収集サイト
 
-結婚式のゲストがスマホからQRコード経由で写真・動画を送れるWebサイトです。
-ログイン不要・合言葉のみでスパムを防ぎます。Cloudflare Workers + R2 で動作し、無料枠(ストレージ10GB)内で運用できます。
+結婚式のゲストがスマホからQRコード経由で写真・動画を送り、みんなで見て保存できるWebサイトです。
+ログインも合言葉も不要です。Cloudflare Workers + R2 で動作し、無料枠(ストレージ10GB)内で運用できます。
 
 ```
 wedding-photos/
 ├── wrangler.toml        # Workers設定(静的アセット + R2バインディング)
 ├── src/index.js         # Worker本体(API + 静的配信)
 ├── public/
-│   ├── index.html       # アップロードページ(ゲスト用)
-│   ├── gallery.html     # ギャラリーページ(新郎新婦用)
+│   ├── index.html       # トップページ(アップロード + みんなの写真)
 │   ├── style.css
-│   ├── app.js
-│   └── gallery.js
+│   ├── app.js           # アップロード処理
+│   ├── album.js         # みんなの写真の一覧・拡大表示・端末への保存
+│   └── _redirects       # 旧 /gallery を / へ転送
 ├── scripts/
 │   └── make-qr.mjs      # QRコードPNG生成
 └── README.md
 ```
 
-| 画面 | URL | 保護 |
-|---|---|---|
-| アップロード(ゲスト用) | `/` | 合言葉(`GUEST_PASSCODE`) |
-| ギャラリー(新郎新婦用) | `/gallery` | 管理パスコード(`ADMIN_PASSCODE`) |
-| ライブムービー(会場スクリーン用) | `/live` | 管理パスコード(`ADMIN_PASSCODE`) |
+## 画面
 
-### ライブムービー(`/live`)について
+ページは `/` の1枚だけです。
 
-会場のスクリーンに投影する演出用ページです。
+- **上部: アップロード**: お名前(任意)を入れて写真・動画を選び送信
+- **下部: みんなの写真**: 投稿された写真が新しい順に並びます。タップで大きく表示し、「端末に保存」で保存できます
+  - iPhone / Android: 共有メニューが開き「画像を保存」で写真アプリに保存(iPhoneは長押しでも保存可)
+  - PC: 通常のファイルダウンロード
+- 一覧には、アップロード時に端末側で作った縮小版(長辺480px)を表示して通信量を抑えています。保存されるのは原寸のオリジナルです
 
-- アップロード済みの写真がポラロイド風に右から左へ流れ続けます
-- 5秒ごとに新着を確認し、新しい写真が届くと
-  「◯◯さんから写真が届きました!」の通知とともに中央に大きく表示 → ムービーに合流します
-- 右下のボタンで全画面表示にできます
-- 動画ファイルはムービーには流れません(ギャラリーでのみ閲覧可)
-- 上映用PCやタブレットのブラウザで開き、電源とWi-Fiを確保しておくことを推奨します
+> **注意**: URLを知っている人は誰でも写真の閲覧・保存・投稿ができます。検索エンジンには載らない設定(noindex)にしていますが、QRコードやURLの扱いにはご注意ください。
 
 ---
 
@@ -63,36 +58,18 @@ npm install
 npx wrangler login
 ```
 
-(ブラウザが開くのでCloudflareアカウントで許可)
+(ブラウザが開くのでCloudflareアカウントで許可。ログインの有効期限が切れたときも同じコマンドで再ログインします)
 
 ```bash
 npx wrangler r2 bucket create wedding-photos
 ```
-
-### 1-4. 合言葉・管理パスコードの設定
-
-秘密情報は `wrangler secret` で管理します(コードには書きません)。
-
-```bash
-npx wrangler secret put GUEST_PASSCODE
-```
-
-(プロンプトが出たら **ゲスト用の合言葉**(招待状に書くもの)を入力してEnter)
-
-```bash
-npx wrangler secret put ADMIN_PASSCODE
-```
-
-(プロンプトが出たら **新郎新婦用の管理パスコード** を入力してEnter。合言葉とは別の推測されにくいものにしてください)
-
-### 1-5. デプロイ
 
 ```bash
 npx wrangler deploy
 ```
 
 成功すると `https://wedding-photos.<あなたのサブドメイン>.workers.dev` というURLが表示されます。
-このURLがゲストに配るアップロードページです。ギャラリーは `/gallery` を付けたURLです。
+このURLがゲストに配るページです。
 
 ---
 
@@ -110,7 +87,7 @@ npm run qr -- https://wedding-photos.<あなたのサブドメイン>.workers.de
 
 ## 3. 写真の一括ダウンロード
 
-ギャラリーからの一括ダウンロード機能はありません。以下の方法でR2から直接取得します。
+サイト上は1枚ずつの保存です。全件まとめて取得するときは、以下の方法でR2から直接取得します。
 
 ### 方法A: rclone(推奨・高速)
 
@@ -130,7 +107,7 @@ secret_access_key = <Secret Access Key>
 endpoint = https://<アカウントID>.r2.cloudflarestorage.com
 ```
 
-4. 一括ダウンロード:
+4. 一括ダウンロード(`photos/` が原寸のオリジナル。縮小版の `thumbs/` は不要です):
 
 ```bash
 rclone copy r2:wedding-photos/photos ./wedding-photos-backup --progress
@@ -142,8 +119,7 @@ APIで一覧を取得し、1件ずつ `wrangler r2 object get` で保存しま�
 
 ```bash
 mkdir -p download
-curl -s -H "X-Admin-Passcode: <管理パスコード>" \
-  https://wedding-photos.<サブドメイン>.workers.dev/api/photos \
+curl -s https://wedding-photos.<サブドメイン>.workers.dev/api/photos \
   | node -e "JSON.parse(require('fs').readFileSync(0)).photos.forEach(p => console.log(p.key))" \
   | while read -r key; do
       npx wrangler r2 object get "wedding-photos/$key" --file "download/$(basename "$key")" --remote
@@ -152,7 +128,23 @@ curl -s -H "X-Admin-Passcode: <管理パスコード>" \
 
 ---
 
-## 4. 無料枠の確認と課金目安
+## 4. 写真の削除(誤投稿など)
+
+サイト上に削除ボタンはありません。キー(一覧APIの `key`、例: `photos/20261115-123456-abcd1234.jpg`)を指定して、オリジナルと縮小版の両方を削除します。
+
+```bash
+npx wrangler r2 object delete "wedding-photos/photos/20261115-123456-abcd1234.jpg" --remote
+```
+
+```bash
+npx wrangler r2 object delete "wedding-photos/thumbs/20261115-123456-abcd1234.jpg.jpg" --remote
+```
+
+ダッシュボード → **R2 Object Storage** → `wedding-photos` からも削除できます。
+
+---
+
+## 5. 無料枠の確認と課金目安
 
 ### 使用量の確認方法
 
@@ -163,9 +155,9 @@ curl -s -H "X-Admin-Passcode: <管理パスコード>" \
 
 | 項目 | 無料枠 | 本サイトでの消費 |
 |---|---|---|
-| ストレージ | 10 GB | 写真の保存分(累積) |
-| Class A オペレーション(書き込み・一覧) | 100万回 | アップロード1枚 = 1回 |
-| Class B オペレーション(読み取り) | 1000万回 | ギャラリー表示1枚 = 1回 |
+| ストレージ | 10 GB | 写真の保存分(累積)。縮小版は1枚あたり約50KBでごくわずか |
+| Class A オペレーション(書き込み・一覧) | 100万回 | アップロード1枚 = 2回(原寸+縮小版)、ページを開く = 2回 |
+| Class B オペレーション(読み取り) | 1000万回 | 写真の表示・保存1回 = 1回 |
 | 下り転送(egress) | 無制限・無料 | — |
 
 写真1,000枚 + 動画で計10GB程度・ゲスト150人の想定なら、ストレージ以外は無料枠を使い切ることはまずありません。
@@ -186,15 +178,13 @@ Workers自体の無料枠は **10万リクエスト/日**。1日で使い切る�
 
 ---
 
-## 5. ローカル開発・動作確認
-
-ローカル用の合言葉は `.dev.vars` に書いてあります(本番とは別物。リポジトリにはコミットしないでください)。
+## 6. ローカル開発・動作確認
 
 ```bash
 npx wrangler dev
 ```
 
-`http://localhost:8787` でアップロードページ、`/gallery` でギャラリーが開きます。
+`http://localhost:8787` でページが開きます。
 R2はローカルシミュレーションが使われるため、本番バケットには影響しません。
 
 ### curlでのAPI確認例
@@ -202,20 +192,19 @@ R2はローカルシミュレーションが使われるため、本番バケッ
 ```bash
 # アップロード
 curl -X POST http://localhost:8787/api/upload \
-  -H "X-Passcode: wedding2026" \
   -H "X-Uploader-Name: %E5%B1%B1%E7%94%B0%E5%A4%AA%E9%83%8E" \
   -H "Content-Type: image/jpeg" \
   --data-binary @test.jpg
 ```
 
 ```bash
-# 一覧取得(管理パスコード必須)
-curl http://localhost:8787/api/photos -H "X-Admin-Passcode: admin-secret"
+# 一覧取得
+curl http://localhost:8787/api/photos
 ```
 
 ---
 
-## 6. 独自ドメインを使いたい場合(任意)
+## 7. 独自ドメインを使いたい場合(任意)
 
 workers.dev のURLのままで問題ありませんが、独自ドメインを使う場合は:
 
@@ -226,8 +215,8 @@ workers.dev のURLのままで問題ありませんが、独自ドメインを�
 
 ## 運用メモ
 
-- 合言葉を変えたいとき: `npx wrangler secret put GUEST_PASSCODE` を再実行して `npx wrangler deploy`
+- スパム対策は「同一IPから1分間に60アップロードまで」の簡易制限のみです
 - 式の後は写真を一括ダウンロードし、バケットを削除すれば課金の心配はありません:
   ダッシュボードのバケット設定から削除(中身があると削除できないため、先にオブジェクトを空にする)
 - 1ファイル上限は95MB(Workersのリクエスト上限100MBに対する安全マージン)
-- HEIC/HEIFは変換せずそのまま保存されます(ギャラリーでの表示可否は閲覧ブラウザに依存します。iPhone/macのSafariでは表示できます)
+- HEIC/HEIFは変換せずそのまま保存されます。AndroidのChrome等では表示できない場合がありますが(一覧には「HEIC」と表示)、保存は可能です

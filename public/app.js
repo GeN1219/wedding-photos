@@ -5,13 +5,13 @@ const MAX_SIZE = 95 * 1024 * 1024; // 95MB
 const MAX_PARALLEL = 3; // 同時アップロード数
 const MAX_RETRY = 3; // 自動リトライ回数(指数バックオフ)
 const MAX_RATE_WAITS = 5; // 429での待機回数上限
+const THUMB_PX = 480; // 一覧用サムネイルの長辺
 
 const $ = (id) => document.getElementById(id);
 
 const formSection = $('form-section');
 const progressSection = $('progress-section');
 const doneSection = $('done-section');
-const passcodeInput = $('passcode');
 const nameInput = $('uploader-name');
 const fileInput = $('file-input');
 const fileLabel = $('file-label');
@@ -97,12 +97,6 @@ fileInput.addEventListener('change', () => {
 
 // ---- 送信開始 ----
 uploadBtn.addEventListener('click', () => {
-  const passcode = passcodeInput.value.trim();
-  if (!passcode) {
-    formError.textContent = '合言葉を入力してください。';
-    formError.hidden = false;
-    return;
-  }
   formError.hidden = true;
   startUpload();
 });
@@ -144,21 +138,15 @@ async function startUpload() {
 
   const queue = items.filter((i) => i.status === 'pending');
   let idx = 0;
-  let authFailed = false;
 
   const worker = async () => {
-    while (idx < queue.length && !authFailed) {
+    while (idx < queue.length) {
       const item = queue[idx++];
       try {
         await uploadWithRetry(item);
       } catch (e) {
-        if (e && e.status === 401) {
-          authFailed = true;
-          item.status = 'pending';
-        } else {
-          item.status = 'failed';
-          item.error = '送信に失敗しました';
-        }
+        item.status = 'failed';
+        item.error = '送信に失敗しました';
       }
       updateItem(item);
       updateOverall();
@@ -166,16 +154,9 @@ async function startUpload() {
   };
 
   await Promise.all(Array.from({ length: MAX_PARALLEL }, worker));
+  await thumbChain;
   uploading = false;
-
-  if (authFailed) {
-    // 合言葉違いは全体を中断してフォームへ戻す
-    progressSection.hidden = true;
-    formSection.hidden = false;
-    formError.textContent = '合言葉が違います。招待状をご確認ください。';
-    formError.hidden = false;
-    return;
-  }
+  if (window.refreshAlbum) window.refreshAlbum();
 
   const doneCount = items.filter((i) => i.status === 'done').length;
   const failed = items.filter((i) => i.status === 'failed');
@@ -202,13 +183,13 @@ async function uploadWithRetry(item) {
     item.status = 'uploading';
     updateItem(item);
     try {
-      await uploadOne(item);
+      const key = await uploadOne(item);
       item.status = 'done';
       item.progress = 1;
+      if (key && item.mime.startsWith('image/')) queueThumb(item.file, key);
       return;
     } catch (err) {
       item.progress = 0;
-      if (err.status === 401) throw err; // 合言葉違い → 呼び出し元で中断
       if (err.status === 400 || err.status === 413) {
         // リトライしても直らないエラー
         item.status = 'failed';
@@ -237,8 +218,7 @@ async function uploadWithRetry(item) {
 function uploadOne(item) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/upload');
-    xhr.setRequestHeader('X-Passcode', passcodeInput.value.trim());
+    xhr.open('POST', './api/upload');
     xhr.setRequestHeader('X-Uploader-Name', encodeURIComponent(nameInput.value.trim()));
     xhr.setRequestHeader('Content-Type', item.mime);
     xhr.timeout = 10 * 60 * 1000; // 大きい動画用に10分
@@ -252,7 +232,11 @@ function uploadOne(item) {
     };
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
-        resolve();
+        let key = '';
+        try {
+          key = JSON.parse(xhr.responseText).key || '';
+        } catch (e) { /* キーが取れなくてもアップロード自体は成功 */ }
+        resolve(key);
       } else {
         let message = '送信に失敗しました';
         try {
@@ -267,6 +251,53 @@ function uploadOne(item) {
     xhr.onerror = () => reject(new Error('通信エラーが発生しました'));
     xhr.ontimeout = () => reject(new Error('通信がタイムアウトしました'));
     xhr.send(item.file);
+  });
+}
+
+// ---- 一覧用サムネイル ----
+// 原寸のまま保存しつつ、一覧の通信量を抑えるため端末側で縮小版を作って別送する。
+// 大きな写真のデコードはメモリを食うため1枚ずつ順番に処理する。失敗しても投稿には影響しない。
+let thumbChain = Promise.resolve();
+
+function queueThumb(file, key) {
+  thumbChain = thumbChain.then(() => sendThumb(file, key)).catch(() => {});
+}
+
+async function sendThumb(file, key) {
+  const blob = await makeThumb(file);
+  if (!blob) return;
+  await fetch('./api/thumb?key=' + encodeURIComponent(key), {
+    method: 'POST',
+    headers: { 'Content-Type': 'image/jpeg' },
+    body: blob,
+  });
+}
+
+function makeThumb(file) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    const done = (blob) => {
+      URL.revokeObjectURL(url);
+      resolve(blob);
+    };
+    img.onload = () => {
+      try {
+        const scale = Math.min(1, THUMB_PX / Math.max(img.naturalWidth, img.naturalHeight));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          canvas.width = canvas.height = 0; // iOSのcanvasメモリを即解放
+          done(blob);
+        }, 'image/jpeg', 0.8);
+      } catch (e) {
+        done(null);
+      }
+    };
+    img.onerror = () => done(null); // AndroidでのHEIC等、表示できない形式
+    img.src = url;
   });
 }
 
