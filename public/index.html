@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <title>Wedding Photos | 写真をお送りください</title>
-<link rel="stylesheet" href="./style.css?v=5">
+<link rel="stylesheet" href="./style.css?v=6">
 </head>
 <body>
 <main class="page">
@@ -56,15 +56,23 @@
   <div class="album-head">
     <h2 class="album-title">みんなの写真</h2>
     <p id="album-stats" class="album-stats"></p>
-    <button id="refresh-btn" class="btn-text" type="button">&#8635; 最新にする</button>
+    <div class="album-actions">
+      <button id="select-btn" class="btn-text" type="button">選択</button>
+      <button id="refresh-btn" class="btn-text" type="button">&#8635; 最新にする</button>
+    </div>
   </div>
-  <p class="album-note">写真をタップすると大きく表示され、端末に保存できます</p>
+  <p id="album-note" class="album-note">写真をタップすると大きく表示され、端末に保存できます。「選択」でまとめて保存もできます</p>
   <div id="grid" class="grid"></div>
   <div id="sentinel"></div>
   <p id="album-empty" class="album-empty" hidden>まだ写真がありません。最初の1枚をぜひ!</p>
   <p id="album-error" class="error" hidden></p>
   <footer class="footer">Wedding Photo Share</footer>
 </section>
+
+<div id="select-bar" class="select-bar" hidden>
+  <p id="select-info" class="select-info"></p>
+  <button id="select-save" class="btn btn-primary" type="button" disabled>保存</button>
+</div>
 
 <div id="lightbox" class="lightbox" hidden>
   <button id="lb-close" class="lb-close" aria-label="閉じる">&#10005;</button>
@@ -74,7 +82,7 @@
   <p id="lb-hint" class="lb-hint">iPhoneは写真を長押しでも保存できます</p>
 </div>
 
-<script src="./app.js?v=5"></script>
-<script src="./album.js?v=5"></script>
+<script src="./app.js?v=6"></script>
+<script src="./album.js?v=6"></script>
 </body>
 </html>
