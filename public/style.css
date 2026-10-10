@@ -51,7 +51,19 @@ body {
 
 /* ---- ヒーロー ---- */
 .hero { text-align: center; margin-bottom: 28px; }
-.ornament { color: var(--accent); font-size: 22px; margin-bottom: 6px; }
+.hero-names {
+  font-family: var(--serif);
+  font-size: 20px;
+  letter-spacing: 0.1em;
+  color: var(--accent-dark);
+}
+.hero-date {
+  font-family: var(--serif);
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  color: var(--ink-light);
+  margin-bottom: 10px;
+}
 .hero-title {
   font-family: var(--serif);
   font-size: 30px;
