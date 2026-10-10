@@ -33,6 +33,22 @@ body {
   padding: 32px 20px calc(24px + env(safe-area-inset-bottom));
 }
 
+/* ---- HOMEへ戻る ---- */
+.home-link {
+  display: inline-block;
+  margin: -12px 0 14px;
+  padding: 7px 16px;
+  border: 1px solid var(--accent);
+  border-radius: 99px;
+  background: #fff;
+  color: var(--accent-dark);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-decoration: none;
+}
+.home-link:active { opacity: 0.7; }
+
 /* ---- ヒーロー ---- */
 .hero { text-align: center; margin-bottom: 28px; }
 .ornament { color: var(--accent); font-size: 22px; margin-bottom: 6px; }
