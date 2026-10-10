@@ -3,9 +3,9 @@
 (() => {
   const BATCH = 30; // 一度に描画する枚数
   const PREFETCH_MAX = 30 * 1024 * 1024; // これ以下は保存ボタン用に先読みする
-  // まとめて保存はスマホのメモリに全件を読み込むため上限を設ける
-  const SELECT_MAX = 20;
-  const SELECT_MAX_BYTES = 200 * 1024 * 1024;
+  // スマホ(共有メニュー経由)は全件をメモリに読み込むため上限を設ける。PCのダウンロードは無制限
+  const SELECT_MAX = 50;
+  const SELECT_MAX_BYTES = 400 * 1024 * 1024;
   const SELECT_FETCH_PARALLEL = 3;
 
   const $ = (id) => document.getElementById(id);
@@ -210,12 +210,12 @@
       updateBar();
       return;
     }
-    if (selected.size >= SELECT_MAX) {
+    if (shareMode && selected.size >= SELECT_MAX) {
       flash(`一度に保存できるのは${SELECT_MAX}件までです`);
       return;
     }
-    if (selectedBytes() + photo.size > SELECT_MAX_BYTES) {
-      flash('合計200MBを超えるため選択できません(動画は少なめに)');
+    if (shareMode && selectedBytes() + photo.size > SELECT_MAX_BYTES) {
+      flash(`合計${SELECT_MAX_BYTES / 1024 / 1024}MBを超えるため選択できません(動画は少なめに)`);
       return;
     }
     const entry = { photo, file: null, failed: false };

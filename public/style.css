@@ -392,3 +392,10 @@ input:focus {
   opacity: 0.8;
 }
 .footer-note span { display: inline-block; }
+
+.pick-hint {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--ink-light);
+  margin: 0 2px 12px;
+}
